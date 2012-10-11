@@ -1,0 +1,126 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!-- saved from url=(0077)http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/Assignments/01/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="Pragma" content="no-cache">
+
+  
+    <title>P523: Assignment 1</title>
+    <link href="./P523  Assignment 1_files/index.css" rel="stylesheet" type="text/css">
+    <script src="./P523  Assignment 1_files/tabs.js"></script>
+    <script src="./P523  Assignment 1_files/pages.js"></script>
+    <script>window.onload = function()
+      {
+        return decorate_page('Assignments', 'P523', '../../', Array('Assignments','01'), Array('../index.html'));
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="head"></div>
+    <noscript>
+      &lt;div class="note"&gt;
+	You will need to enable Javascript to see the navigation menu.
+      &lt;/div&gt;
+    </noscript>
+
+    <table id="tabs"><tbody><tr><td><div class="roundtop" classname="roundtop"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/index.html">Home</a></span></td><td><div class="roundtop" classname="roundtop"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/schedule.html">Schedule</a></span></td><td><div class="roundtop_selected" classname="roundtop_selected"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span class="selected" classname="selected">Assignments</span></td><td><div class="roundtop" classname="roundtop"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/policies.html">Policies</a></span></td><td><div class="roundtop" classname="roundtop"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/resources.html">Resources</a></span></td><td><div class="roundtop" classname="roundtop"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><span><a href="https://oncourse.iu.edu/" target="_top">OnCourse</a></span></td></tr></tbody></table><div class="roundtop_content" classname="roundtop_content"><div class="r1" classname="r1"></div><div class="r2" classname="r2"></div><div class="r3" classname="r3"></div><div class="r4" classname="r4"></div><div class="r5" classname="r5"></div></div><div id="content"><div id="linksequence">Home<ul><li>&nbsp;»&nbsp;<a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/Assignments/index.html">Assignments</a></li><li>&nbsp;»&nbsp;01</li></ul></div>
+      <h1>Assignment 1 (50 points)</h1>
+      <table class="due">
+	<tbody>
+	  <tr>
+	    <td>Announced 2012-01-19 (Thu)</td>
+	    <th>Due 2012-01-29 (Sun)</th>
+	  </tr>
+	</tbody>
+      </table>
+
+      <p>
+	The purpose of this assignment is to build a parser and an unparser (pretty printer) for a small language
+	called <a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/Assignments/pidginc.html">PidginC</a> that is a small, but useful, subset of C.  You will use this
+	parser in your future assignments.  The output of the parser will be parse tree consisting
+	of <tt>RubyWrite::Node</tt> objects that you can visualize with <tt>RubyWrite::Node#prettyprint</tt>.
+	(<tt>A#b</tt> is the Ruby convention of referring to a method <tt>b</tt> in class <tt>A</tt>.  It is not valid
+	Ruby syntax, simply a notational convenience for referring to methods unambiguously.)  The parser has already
+	been partially built for you.
+      </p>
+
+      <p>
+	You have two tasks:
+      </p>
+      <ol>
+	<li>
+	  Finish the parser by adding support for compound statements, declaration statements, and pointers in the
+	  supplied PidginC parser.
+	</li>
+	<li>
+	  Write an “unparser” (pretty printer) that generates valid PidginC output, using the ShadowBoxing
+	  language that is a part of RubyWrite.  A test for the unparser is to feed its output back to your parser.
+	</li>
+      </ol>
+
+      <p>
+	To get you started your repository has been populated with some support code, including a scanner (implemented
+	as a C-extension library), a partially built parser, some test examples, and test drivers for the parser and
+	the scanner.  Notice that the parser expects each token to be represented as an array of two
+	elements—token of type <tt>Symbol</tt> and its value of type <tt>String</tt>.  Remember that in Ruby any
+	string can be converted into a <tt>Symbol</tt> type.  While <tt>racc</tt> documentation is sparse, the
+	supplied parser and examples that come with the <tt>racc</tt> gem will be instructive.
+      </p>
+
+      <p>
+	Your top-level compiler file should be <tt>pcc.rb</tt>, which should read PidginC input from <tt>stdin</tt>,
+	internally parse it, and output an unparsed version on <tt>stdout</tt>.  You must support a command line
+	switch <tt>-p</tt> to force the output to be a parse tree (using <tt>RubyWrite::Node#prettyprint</tt>) instead
+	of unparsed PidginC.  If you wish you may add command line options <tt>-i</tt> and <tt>-o</tt> to specify
+	input and output file names.  You will find the Ruby gem <tt>optparse</tt> and the core class <tt>IO</tt>
+	handy for this purpose.
+      </p>
+
+      <p>
+	The example <tt>pcc.rb</tt> supplied to you contains some example code to illustrate the use
+	of <tt>RubyWrite</tt>, which is a home-grown embedded DSL (really, a Ruby library with some cleverly chosen
+	method names) for rewriting trees.  You may ignore that code for this assignment—it will be useful in
+	future assignments.
+      </p>
+
+      <p>
+	You will be evaluated based on the following:
+      </p>
+      <ol>
+	<li>
+	  The correctness of the parser and the unparser, determined by running the parser on some test cases that will
+	  <strong>not</strong> be provided to you.  Building an appropriate set of test cases is a part of the
+	  assignment.
+	</li>
+	<li>
+	  The collection of your own test cases that you submit with your solution.  Add your tests to
+	  the <tt>test/parsing</tt> directory.
+	</li>
+	<li>
+	  The clarity of your code.
+	</li>
+      </ol>
+
+      <p>
+	When you are ready to turn-in the assignment, use <tt>hg&nbsp;tag</tt> to create a tag <tt>A1</tt> and do not
+	forget to push it back to the server.  Then, send the instructor an e-mail and say if you are using additional
+	time to finish your assignment.  The instructor will extract the submission directly from your HG
+	repository.  <b>Do not send a tar-ball of the entire code in e-mail.</b>
+      </p>
+
+      <hr>
+
+      <p>
+	Links:
+      </p>
+      <ul>
+	<li><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/Assignments/pidginc.html">PidginC</a></li>
+	<li><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/CourseMaterial/2001-CWITechReport-jonge-prettyprinter.pdf">Box language that motivated
+	the ShadowBoxing DSL</a></li>
+	<li><a href="http://docs.rubyrake.org/">Rake documentation</a></li>
+	<li><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/Assignments/manual.pdf">RubyWrite documentation</a> as a paper draft (ShadowBoxing is briefly discussed
+	in Section&nbsp;5 with an example)</li>
+      </ul>
+    </div>
+  
+
+<div class="roundtop_content" classname="roundtop_content"><div class="r5" classname="r5"></div><div class="r4" classname="r4"></div><div class="r3" classname="r3"></div><div class="r2" classname="r2"></div><div class="r1" classname="r1"></div></div><address><a href="http://www.cs.indiana.edu/~achauhan/Teaching/P523/2012-Spring/index.html">P523</a> / <a target="_top" href="http://www.cs.indiana.edu/~achauhan/">Arun Chauhan</a> / <a target="_top" href="http://www.cs.indiana.edu/">Computer Science</a> / <a target="_top" href="http://www.indiana.edu/">Indiana University</a></address></body></html>
