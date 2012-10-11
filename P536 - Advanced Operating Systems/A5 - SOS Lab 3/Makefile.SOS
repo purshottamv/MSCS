@@ -1,0 +1,43 @@
+# Makefile for SOS Binaries
+
+CLASSDIR = /home/swany/sos
+GTYPE = $(shell $(CLASSDIR)/bin/config.guess)
+XCOMP = $(CLASSDIR)/xcomp
+XCOMP_BIN = ${XCOMP}/${GTYPE}/decstation-ultrix/bin
+CC = ${XCOMP_BIN}/gcc
+LD = ${XCOMP_BIN}/ld
+AR = ${XCOMP_BIN}/ar
+AS = ${XCOMP_BIN}/as
+RANLIB = ${XCOMP_BIN}/ranlib
+C2N = ${XCOMP}/coff2noff/${GTYPE}/coff2noff
+
+EXECUTABLES = pipe_test
+
+start: all
+
+all: ${EXECUTABLES}
+
+CFLAGS = -c -I${XCOMP}/include -G0 
+
+#ENSURE that the -G0 option is used for linker and the compiler
+#if it is not used, the linker generates too many sections of assembly
+#code and then coff2noff fails to convert the file
+
+SUPPORT=${XCOMP}/support
+CRT = ${SUPPORT}/crt0.o
+ASSIST = ${SUPPORT}/assist.o
+LIBSYS = ${SUPPORT}/libsys.a
+LIBC = ${SUPPORT}/libc.a
+LDFLAGS = -G0 -T ${SUPPORT}/noff.ld -N -L${XCOMP}/${GTYPE}/lib
+LIBS = $(LIBC) $(LIBSYS)
+
+pipe_test: pipe_test.o ${CRT} ${ASSIST} ${LIBSYS} ${LIBC}
+	${LD} ${LDFLAGS} -o $@.coff ${CRT} ${ASSIST} $@.o ${LIBS}
+	${C2N} $@.coff $@
+	/bin/rm $@.coff
+
+.c.o:
+	${CC} ${CFLAGS} $*.c
+
+clean:
+	/bin/rm -f *.s *.o *.coff $(EXECUTABLES) core a.out

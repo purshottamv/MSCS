@@ -1,0 +1,387 @@
+
+<!-- saved from url=(0052)http://www.cs.indiana.edu/classes/b552-leak/hw1.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>
+Homework 1: Production Systems
+</title>
+</head>
+
+<body>
+<center>
+<h1>B552: Knowledge-Based Computation, Spring 2012 <br>
+Homework 1: Production Systems
+</h1>
+</center>
+
+<h2>
+Due Wednesday, January 26 at the start of class.
+</h2>
+
+<h2>Assignment Goals</h2>
+
+Goals of the assignment are to understand production systems, their
+implementation, and basic knowledge representation for rule-based systems.
+
+<h2>Assignment tasks</h2>
+
+In this assignment you will write a simple forward-chaining production
+system (preferably in scheme) and test it in a small domain for which
+you will define the knowledge representation.  To simplify the
+process, we provide descriptions of key procedures and algorithms that
+you will need.  However, please don't feel restricted to those: if you
+develop a better method, we encourage you to use it!
+
+
+<h2>Before You Start</h2>
+<ul>
+<li> Be sure to read the <a href="http://www.cs.indiana.edu/classes/b552-leak/coding_pointers.html">Guidelines 
+for AI programming assignments</a> before starting.  All knowledge
+should be represented declaratively.
+</li><li> The assignment examples are based on a scheme implementation.
+We recommend using scheme or Lisp if possible.  However, Java and
+Python are acceptable alternatives for those who don't know
+scheme/Lisp.
+If you wish to use another language (except prolog), please
+discuss it in advance with Vahid to see if it can be approved.
+
+</li></ul>
+
+<h2>Implementation and Testing</h2>
+
+<p>
+You will write code to define and manage a working memory, rules, and a
+production system procedure <code>run-ps</code>.  In a scheme
+implementation, <code>run-ps</code>
+will be called by:
+</p><pre>(run-ps *wm1* *rules*)
+</pre>
+It will run the rules repeatedly, outputing a decription of its behavior.
+When no new patterns are found on an iteration it will return the
+current working memory.  Sample output at the end of this
+assignment shows one possible form for the description.
+ 
+<ol>
+
+<li> In this part you will write a set of rules that embody the
+following knowledge.  (The form to use is described below.)
+<i>
+ <ul>
+ <li> If a patient has a very high fever, the patient has a high fever.
+ </li><li> If a patient has whooping cough, the patient has a cough.
+ </li><li> If a patient has poison ivy, the patient has a rash.
+ </li><li> If a patient has a high fever and congestion, the patient has the flu.
+ </li><li> If a patient has a rash and no high fever, the patient has poison ivy.
+ </li><li> If a patient has a cough and a very high fever, the patient has
+      whooping cough.
+ </li><li> If a patient has no fever, no cough, and no rash, the patient is
+  healthy.
+ </li><li> If one patient has a particular disease which is contagious and that
+  patient contacts another patient, then the other patient has the
+  disease.
+ </li><li> If a doctor says that a patient has a particular disease or is
+  healthy, then what the doctor says is true.
+ </li><li> If a person says that a patient has a particular disease or is healthy
+  and that is not true of the patient, then that person is not a
+doctor.
+ </li></ul>
+</i>
+When coding your rules, you can indicate variables by preceeding the variable
+name with a  question mark, as in <code>?var-name</code>.  (See below for code
+to test whether a symbol is a variable.)  Each rule consists
+of a name or number identifying the rule, a left-hand side, and a
+right-hand side.    The left-hand and right-hand sides should
+each be a list of expressions.  Each expression in that list is
+itself a list.  Thus the form of rules is
+<pre>(rule-name 
+   (lhs-exp1 lhs-exp2 ... lhs-expn) (rhs-exp1 rhs-exp2 ... rhs-expm)) 
+</pre>
+Define a variable <code>*rules*</code> to be a list of the rules you define.
+
+<p>
+</p></li><li> Consistent with the representations that you chose in the
+previous part, write a list of expressions corresponding to the 
+following assertions:
+
+<i>
+  <ul>
+  <li> Ed has a very high fever.
+  </li><li> Ed has a cough.
+  </li><li> Alice doesn't have poison ivy.
+  </li><li> Max says Alice has poison ivy.
+  </li><li> Grace says Don is healthy.
+  </li><li> Grace is a doctor.
+  </li><li> Whooping cough is contagious.
+  </li><li> Ed contacts Alice.
+  </li></ul>
+</i>
+<p>Define a variable <code>*wm*</code> to be the initial working memory
+consisting of these assertions.
+</p><p>
+
+</p><p>
+
+</p></li><li> Write a procedure <code>substitute</code> which takes a substitution and a
+     pattern and returns the patttern with the variables from the
+     substitution substituted into it.  A substitution is just a list
+     of 2-element lists, each representing a variable binding.  The first
+     element of each sublist is the variable's name (we'll include the
+     leading "?", but some sources do not).  The second is
+     its binding.  For example,
+
+<pre>&gt; (substitute '((?y mary) (?x john))
+              '(?x gave (son-of ?y) ?z))
+=&gt;
+(john gave (son-of mary) ?z)
+
+&gt; (substitute '((?y ?z) (?z ?x))
+	      '(drop arnold (class ?y 563)))
+=&gt;
+(drop arnold (class ?x 563))
+&gt; 
+</pre>
+Alternatively, to save space you can use dotted pairs instead of
+2-element lists to represent the binding pairs, as in
+<pre>(?y . mary)
+</pre>
+(This will require adjusting the rest of your code accordingly.)
+
+<p>
+
+Notice in the second example that the procedure should continue
+to replace variables until this is no longer possible.  To make
+matters simple, we assume that cycles are not possible in the
+substitution.  Thus you would never have
+<code>((?y . ?x) (?x . ?y))</code>
+as a substitution.
+
+You may use the following procedure to test whether an item is
+a variable, that is, whether it is a symbol beginning with <code>?</code>.
+Notice that the <code>?</code> is left on in the substitution.
+
+</p><pre>(define var?
+  (lambda (obj)
+    (and (symbol? obj)
+	 (char=? (string-ref (symbol-&gt;string obj) 0) #\?))))
+</pre>
+
+
+</li><li> Write a procedure <code>unify</code> which takes two patterns and
+     a substitution and returns either an updated substitution
+     (possibly the empty list) or <code>#f</code>.  
+     <a href="http://www.cs.indiana.edu/classes/b552-leak/unify_info.html">The algorithm
+     and some examples</a>, as discussed in the lecture, are available.
+<p>
+
+</p></li><li> To do forward chaining using depth-first search, we need a
+procedure to expand a state.  (We can represent nodes in the search
+tree as states rather than complete paths.)  Each state will consist
+of a list of antecedents still to be matched and a substitution.
+Write the state-expanding procedure, <code>match-antecedent</code>.
+It takes a state (a list of remaining antecedents and a substitution)
+and a working memory and returns all possible new states which can be
+reached by matching the first antecedent in the list.  It uses
+<code>unify</code> to attempt to match the antecedent against each
+pattern in the working memory.
+
+<pre>(define match-antecedent
+  (lambda (anteceds wm subs)
+    (let ((antec (car anteceds)))
+      (letrec
+	  ((ma-helper
+	    (lambda (states wm-left)
+             ;; If wm-left is empty return states.
+             ...
+             ;; Otherwise attempt to unify antec with the
+             ;; the next pattern in wm-left in the context
+             ;; of subs.
+             ;; If unification fails, call ma-helper on the
+             ;; same list of states and the rest of wm-left.
+             ;; If unification succeeds, call ma-helper
+             ;; with the new state consed onto states and
+             ;; the rest of wm-left.
+             ;; The new state includes the remaining
+             ;; antecedents and whatever new substitution
+             ;; resulted from the unification.
+             ...)))
+	(ma-helper '() wm)))))
+</pre>
+
+<p>
+
+</p></li><li> Write a procedure <code>execute</code> which takes a
+substitution, the right-hand side of a rule (one or more consequents),
+and a working memory.  <code>Execute</code> applies the substitution
+to each of the consequents in the right-hand side, using
+<code>substitute</code>; for each checks whether the instantiated
+consequent is already in working memory; and if it is not, adds it to
+an accumulated list of new patterns.  <code>Execute</code> returns the
+list of new patterns (which is not added to the working memory yet).
+
+<p>
+
+</p></li><li> Write a procedure <code>match-rule</code> which takes the name of
+a rule, the left-hand side of a rule (a list of antecedents), the
+right-hand side of the rule (a list of consequents), and a working
+memory.  <code>Match-rule</code> uses exhaustive depth-first search to
+find all possible ways to satisfy the rule using patterns in the
+working memory.  It maintains a queue of states (each consisting of a
+set of antecedents left to match and a current substitution).  It
+removes the first state from the queue, checks to see whether this is
+a goal state (that is, whether there are no more antecedents), and if
+so, attempts to create new patterns by applying <code>execute</code>
+to the right-hand side using the substitution in the state.  If the
+state is not a goal state, it is expanded using
+<code>match-antecedent</code>, and the new states are appended onto
+the front of the queue.  Since this is exhaustive search, we do not
+stop when a goal state is found but continue until all states in the
+queue are tried.  <code>Match-rule</code> returns the list of new
+patterns to be added to working memory as a result of matching the
+rule.  The list will be empty if either the rule fails to be matched
+or all of the instantiated consequents which result are already in the
+working memory.  Here is a template for <code>match-rule</code>.
+
+<pre>(define match-rule
+  (lambda (name lhs rhs wm)
+    ;; Print out some useful messages here.
+    (letrec
+	((mr-helper
+	  (lambda (queue new-wm)
+	    ;; Each state in queue is:
+	    ;; (anteceds-left subs)
+            ;; If the queue is empty, return new-wm.
+            ...
+            ;; Else examine the first item on the queue (state1)
+            ;;   If state1 has no antecedents, state1 is a goal
+            ;;   state (the rule is matched);
+            ;;   call "execute" on rhs using the substitution in
+            ;;   state1.
+            ...
+            ;;   But don't stop here (this is exhaustive):
+            ;;   call mr-helper on the rest of the queue, appending
+            ;;   whatever new WM assertions "execute" returned.
+            ...
+            ;;   Else if state1 does have antecedents, use
+            ;;   "match-antecedent" on them, along with
+            ;;   wm and the substitutions in state1.
+            ...
+            ;;      If "match-antecedent" returns no new states,
+            ;;      call mr-helper on the rest of the queue without
+            ;;      changing states.
+            ...
+            ;;      Else call mr-helper on the updated queue,
+            ;;      that is, the old one with the new states found
+            ;;      by "match-antecedent" replacing state1.
+            ...)))
+      (mr-helper (match-antecedent lhs wm '()) '()))))
+</pre>
+
+<p>
+
+</p></li><li> Write a procedure <code>match-rules</code> which takes a list of
+rules and a working memory, calls <code>match-rule</code> on each of
+the rules, and returns a list of new patterns resulting from matching
+rules.
+
+<p>
+
+</p></li><li> Write a procedure <code>run-ps</code> which takes a list of rules
+and a working memory and calls <code>match-rules</code> repeatedly,
+appending the new patterns that are returned onto the working memory,
+until no new patterns are found on an iteration.  <code>Run-ps</code>
+returns the updated working memory.  Here is a partial trace of a run
+of <code>run-ps</code>:
+
+<pre>&gt; (run-ps *wm1* *rules1*)
+
+CYCLE 1
+
+Current WM:
+((fever ed very-high)
+ ...)
+
+Attempting to match rule 1
+Failing
+
+Attempting to match rule 2
+Match succeeds
+Adding assertions to WM:
+((disease don none))
+
+Attempting to match rule 3
+Match succeeds
+Adding assertions to WM:
+...
+
+Attempting to match rule 4
+Failing
+
+...
+
+
+CYCLE 2
+
+Current WM:
+...
+
+Attempting to match rule 1
+Failing
+
+Attempting to match rule 2
+Match succeeds
+No new WM assertions
+
+Attempting to match rule 3
+Match succeeds
+No new WM assertions
+
+Attempting to match rule 4
+Failing
+
+Attempting to match rule 5
+Match succeeds
+Adding assertions to WM:
+...
+
+
+CYCLE 3
+
+...
+
+
+CYCLE 4
+
+...
+
+NO CHANGES ON LAST CYCLE, HALTING
+
+((cough alice)
+ ...
+ )
+&gt;
+</pre>
+
+</li></ol>
+
+<h2>Submission</h2>
+
+The assignment will be submitted electronically, on Oncourse. You
+should submit separate files for:
+<ol>
+<li> Your production rules, from item (1) above.
+</li><li> Your code (well documented, with instructions on how to run it)
+</li><li> A trace of your system running with your rules on the assertions
+in item (2) above.  Your output should provide the same information
+illustrated in item (9) in an easily readable form, but need not use
+exactly the same format.
+</li></ol>
+You may submit as many versions as you wish (only the last submission
+before the deadline will be graded).  We recommend submitting a first
+version before the last minute, to make sure it's in the system.
+Also, please keep backup copies of all your files.
+
+
+<p>This assignment was developed by Mike Gasser, Susan
+Fox, and David Leake
+
+
+</p></body></html>

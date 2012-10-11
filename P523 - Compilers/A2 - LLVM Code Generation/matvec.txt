@@ -1,0 +1,72 @@
+define double* @matvec(double** %A, double* %B, double* %C, i32 %n)
+{
+	%matrix = alloca double**	; allocate memory for double matrix
+	%vectorb = alloca douible*	; allocate memory for vector B
+	%vectorc = alloca double*	; allocate memory for vector C
+	%numOfElements = alloca i32	; allocate memory for n
+	%i = alloca int*		; allocate memory for i and j
+	%j = alloca int*		
+	%x = alloca i32			; allocate memory for x and y
+	%y = alloca i32
+
+	store double** %A, double*** %matrix	; storing matrix into stack variable
+	store double* %B, double** %vectorb	; storing vector b into stack
+	store double* %C, double** %vectorc	; storing vector c into stack
+	store i32 %n,i32* %numOfElements	; storing number of elements into stack
+	store i32 0,i32* %i			; storing initial value 0 into i
+
+		; Starting the outer for loop
+
+	:OUTERFOR
+	%1 = load i32* %i
+	%2 = load i32* %numOfElements
+	%result1 = icmp slt i32 %1,%2		; comparing if i < n
+	br i1 %result, label %CONTINUE_OUTER_FOR, label %END_OUTER_FOR
+
+	:CONTINUE_OUTER_FOR	; Label %9
+	%3 = load double** %vectorc
+	%Cindex0 = getelementptr inbounds double* %3, i32 0
+	store double 0.0, double* %Cindex0
+	store i32 0, i32* j			; initialize j to 0
+
+	:INNER_FOR	; Label %14
+	%4 = load i32* %j			; load the value of j
+	%5 = load i32* %numOfElements
+	%result2 = icmp slt i32 %4,%5
+	br i1 %result2, label %CONTINUE_INNER_FOR, label %END_INNER_FOR
+
+	:CONTINUE_INNER_FOR
+	%6 = load i32* i
+	%7 = load double** %vectorc
+	%8 = getelementptr inbounds double* %7, i32 %6	
+	%9 = load double* %8			; This is C[i]
+
+	%10 = load i32* %j
+	%11 = load double*** %matrix
+	%12 = getelementptr inbounds double** %11, i32 %6	; Get the row number of matrix
+	%13 = load double** %12
+	%14 = getelementptr inbounds double* %13, i32 %10	
+	%15 = load double* %14			; This is A[i][j]
+
+	%16 = load double** %vectorb
+	%17 = getelementptr inbounds double* %7, i32 %10
+	%18 = load double* %17			; This is B[j]
+
+	%mulresult = fmul double %15, %18
+	%addresult = fadd double %9, %mulresult
+	store double %addresult, double* %8	; Store the result in C[i]
+
+	%19 = add i32 %10, 1			
+	%20 = store i32 %19, i32* %j		; increment j
+	br label %CONTINUE_INNER_FOR
+
+	:END_INNER_FOR
+	%21 = load i32* %i
+	%22 = add i32 %21, 1
+	store i32 %22, i32* %i			; increment i
+	br lable %OUTERFOR
+
+	:END_OUTER_FOR
+	%23 = load double** %vectorc		; return C
+	ret double* %23
+}

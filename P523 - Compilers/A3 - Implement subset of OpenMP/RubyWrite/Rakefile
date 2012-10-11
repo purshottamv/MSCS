@@ -1,0 +1,60 @@
+require 'rake/rdoctask'
+require 'rake/clean'
+require 'rake/gempackagetask'
+require 'rake/testtask'
+
+def svn_rev
+  h = {}
+  `svn info`.each_line do |l|
+    k, v = l.chomp.split /\s*:\s*/
+    h[k] = v
+  end
+  h["Revision"]
+end
+
+task :default
+
+task :all => :default
+
+task :default => [:test, :rdoc]
+
+desc "Run all the tests"
+Rake::TestTask.new do |t|
+  t.options = '--verbose=normal'
+end
+
+Rake::RDocTask.new do |rd|
+  rd.main = "README"
+  rd.rdoc_dir = 'doc/rdoc'
+  rd.title = 'RubyWrite -- Tree Rewriting DSL in Ruby'
+  rd.rdoc_files.include("README", "lib/**/*.rb")
+  rd.options = ['--inline-source']
+end
+
+NAME = "rubywrite"
+
+REV = "0.1.0.#{svn_rev}"
+
+SPEC = Gem::Specification.new do |s|
+  s.platform = Gem::Platform::RUBY
+  s.name = NAME
+  s.version = REV
+  s.author = "Arun Chauhan, Andy Keep, Chun-Yu Shei"
+  s.email = "phi@phi.cs.indiana.edu"
+  s.homepage = "http://phi.cs.indiana.edu/"
+  s.platform = Gem::Platform::RUBY
+  s.summary = "term-rewriting DSL for Ruby"
+  s.description = "Provides a basic term-rewriting DSL for Ruby, similar" \
+                  "in spirit to the Stratego/XT system, but embedded rather" \
+                  "then external."
+  s.files = FileList["lib/**/*"].to_a
+  s.require_path = "lib"
+  s.has_rdoc = true
+  s.extra_rdoc_files = ["README"]
+  s.add_dependency 'trie', '>= 0.0.1'
+end
+
+Rake::GemPackageTask.new(SPEC) do |pkg|
+  pkg.need_tar = true
+end
+

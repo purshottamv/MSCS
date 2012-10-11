@@ -1,0 +1,350 @@
+
+This is a demanding lab. Start early.  
+Also, beginning with this lab you may want to consider 
+grouping your functions together logically in different files.
+Otherwise your sos.c may become somewhat of a mess.
+
+Step 1 -- Compile your code with the new simulator.h and the new
+          main_lab2.o.  It will fail, saying that a.out is too big.  
+          This is because the User_Base and User_Limit registers 
+          have not been set.  Set them in initialize_user_process()
+          to be zero and MemorySize.  Recompile and rerun.  It should
+          work as before now.
+
+Step 2 -- Now, have your program run hw2 -- this is a simple hello world
+          program that uses the standard I/O library.  What will happen 
+          first is that you'll get an unknown system call #54. This
+          is the ioctl call made by the standard I/O library.  This
+          is kind of irritating, but you have to deal with it.  The
+          call that is made here is ioctl(1, SOS_TCGETP, termios),
+          where termios is a (struct SOStermios *). You have to
+          service this by calling ioctl_console_fill(x), where x is
+          the address of termios in the SOS memory, and then
+          returning zero from the system call.  If the ioctl call has
+          any other arguments (i.e. a different first or second
+          argument, return EINVAL.
+
+          Do this.  I forked off a kthread to deal with this so that
+          syscall_return() worked. 
+
+          What you'll get now is an unknown system 
+          call of type SYS_fstat.  Onto the next step.
+
+Step 3 -- The standard I/O library calls fstat() mainly to get the buffer
+          size of an open file descriptor.  For fd 0, this should be one.
+          For fd's 1 and 2, this should be something larger -- try 256.
+          Anyway, you have to deal with this call and fill
+          in the stat buf that is the second argument (see the man page
+          for fstat for the arguments to the system call).  You deal with
+          this by calling stat_buf_fill(char *addr, int blk_size), where
+          addr is the SOS address of the stat buffer, and blk_size is the
+          buffer size.  For now, implement fstat for fd's 0, 1, and 2.
+          This will change later.
+
+          Test it -- you'll get an unknown system call #64 -- getpagesize().
+          Implement this to return PageSize.
+
+Step 4 -- Now you'll get unknown system call #69 -- sbrk().  Read the
+          man page for all the details of sbrk(), and implement it:
+          The initial brk pointer should be the return value of
+          load_user_code(), and you should never let the user get more
+          space than you have allocated for them (i.e. with one program,
+          the sbrk pointer should not be larger than MemorySize).  The
+          sbrk() pointer should be part of the PCB.   Hack this up 
+          and get it working.   hw2 should work fine now.  
+
+Step 5 -- Now is a good time to put a little more memory management
+          info into your PCB's.  Specifically, put Base and Limit
+          integers in.  These should be set in initialize_user_process(),
+          and when you make memory checks, you should make them against
+          these.  In my code, this required changes in my implementations
+          of sbrk(), ioctl(), fstat(), read() and write().
+
+          Also, make sure that the User_Base and User_Limit registers
+          are set properly before calling run_user_code() in the scheduler.
+
+          Test it out by first setting the base to zero and the limit
+          to MemorySize.  Next, try setting base to 1024 and limit to
+          MemorySize-2048. 
+
+Step 6 -- Time to attack execve.  Look at exec.c in the test_code directory.
+          As you see, you can use exec without fork or wait.  We'll implement
+          it using exec as the test program.  The first thing we have to
+          do is split initialize_user_process() into two parts.  
+          The first part will allocate a new PCB and initialize things
+          like its limit/base fields and its registers.  Next, it calls 
+          perform_execve(job, fn, argv), where job is the new PCB,
+          fn is the name of your initial executable (at this point, mine
+          is a.out), and argv is the argv of this initial job.  
+          perform_execve returns an integer -- zero on success, and an
+          errno if an error occurred.  perform_execve() loads the user program,
+          sets the stack and the registers, and then returns zero.  If
+          there were any errors (e.g. the program didn't load), it returns
+          the proper errno.  When perform_execve() returns to 
+          initialize_user_process(), it either exits because there was an
+          error, or it puts the new job onto the ready queue and calls
+          mt_exit().  Try this out and run one of your old programs as the
+          initial program (e.g. argtest, cat, or hw).
+
+Step 7 -- Now, work on execve.  When you get the execve system call, 
+          fork off a thread to service it.  The first thing that this 
+          thread must do is recognize/check the arguments.  This is tricky.
+          First, see if you can print out the file name (first argument).
+          That's easy.  Now, see if you can print out all of the argv's.
+
+Step 8 -- Now, you have to copy the file name and the argv strings into
+          SOS's memory.  Why?  Because you are going to be loading a program
+          over the top of the user's memory, and you don't want to lose
+          the file name and the argv strings.  Do this copying (yes, you'll
+          have to call malloc) and test.
+
+Step 9 -- Now you're ready to call perform_execve() on your filename and
+          argv pointer.  There is one particular trickiness that you
+	  must observe, however, and that has to do with your NextPC
+	  value.  When you begin executing a new process, the simulator
+	  expects the PC value to be set to 0 and the NextPC value
+	  to be set to 4.  If you implemented syscall_return as I recommended 
+	  in SOS Lab #4, then you will need to be careful about how you set 
+	  the PC and NextPC values.   
+
+	  If perform_execve() returns with an error, call syscall_return with 
+	  that error.  Otherwise, everything worked, and you can call 
+	  syscall_return with zero (granted, you aren't 
+	  really returning from a system call, but this will get the PCB 
+	  onto the ready queue).  In either case you need to call
+          free() on anything that you malloc'd in step 8.  Test this out
+          on the exec program.  When you're done, execve should be working!
+
+Step 10 -- Now is a good time to put process id's into your PCB.  Keeping
+           with unix, we're going to make process id's unsigned shorts.
+           This is nice because it keeps them small.  It's not nice 
+           because you have to worry about reusing process id's.  Write
+           a piece of code called "int get_new_pid()".  It returns an 
+           unused process id.  How does this work?  I have a rb-tree
+           of process id's, plus a global variable curpid, which I initialize
+           to zero.  get_new_pid() increments curpid, and checks the tree to
+           see if curpid is there.  If so, it increments curpid and tries
+           again until it gets a pid that's not there.  Then it puts
+           curpid into the tree and returns it.  While you're at it, write
+           destroy_pid(int pid), which removes the given pid from the tree.
+           Test this out (figure out how, or be arrogant and don't test it).
+	   Your code should always assign the lowest available pid to a process. 
+
+Step 11 -- Now, initialize the pid of your first process in 
+           initialize_user_process(), and implement the getpid() system 
+           call. It should be obvious that this will be a function that 
+	   returns the current PCB's pid through a call to syscall_return() 
+           i.e. it is separate from the function you designed in step 10.
+
+
+Step 12 -- Now, implement fork().  This is a tough one to do incrementally,
+           but you should.  You need to first write primitives to
+           split up memory into 8. This means that you can have eight
+           processes running at any one time. Now, when you first
+           start processing a fork call, check to see if you have
+           room in memory, and if not, return EAGAIN. If it's ok,
+           allocate a new PCB and initialize its fields -- limit and
+           base will be to a new part of memory.  The registers
+           should be copied from the calling process's PCB. It should
+           get a new pid.  Its memory should be a copy of the calling
+           process's memory.  Now, call syscall_return(newproc, 0),
+           and ignore the calling process.  If this works, when you
+           test it on the fork program you should get the output (the
+           pids might be different -- the pid of my first program is 1).
+
+           mypid = 2.  fork returned 0
+
+           Go back and change the syscall_return() call to
+           syscall_return(job, newjob->pid).  Now, the new process will
+           be created, but lost.  The output will be:
+
+           mypid = 1.  fork returned 2
+
+Step 13 -- Now, before the syscall_return() call, call 
+           mt_create(finish_fork, newjob).  And have finish_fork simply 
+           call syscall_return(newjob, 0).  When the scheduler gets
+           called, there will be two processes on the ready queue.  If
+           Everything works as in my code, you'll get the following output
+           to the fork program:
+
+           mypid = 1.  fork returned 2
+           m
+
+           In other words, the parent process returned and printed out its
+           string.  Then, just before it exited, the child process started
+           printing out its string.  But then the parent process exits, and
+           SYSHalt() is called, shutting down the system.  However, your
+           fork() call works!
+
+Step 14 -- Time to fix exit().  Instead of having it call SYSHalt(), you
+           should have it kill the process: release the memory that it
+           was consuming so that other processes may use it.  Save the
+           exit value in the PCB.  However, don't deallocate the PCB yet,
+           and don't jettison the pid yet.  When you're done, simply call
+           mt_exit() so that the scheduler will take over.  This creates
+           a kind of zombie process (since the pid is not destroyed, and
+           the PCB still exists), but since we haven't implemented wait(),
+           the zombie will never go away.
+
+           Test this on the fork program.   It should now run to completion
+           and hang when it's done:
+
+           mypid = 1.  fork returned 2
+           mypid = 2.  fork returned 0
+
+
+  	   If you get the same statement twice
+	
+	   mypid = 1.  fork returned 2
+           mypid = 1.  fork returned 2
+
+	   Then you may not have your read and write functions set up
+	   to deal with the fact that you can have multiple processes
+	   in memory at the same time now. Fix this.
+
+Step 15 -- Implement the getdtablesize() system call so that it returns 64.
+
+Step 16 -- Implement the close() system call so that it returns -EBADF 
+           whenever it is called.  We're going to ignore the close()
+           system call until the next lab, but we have to deal with 
+           the calls that the shell will make.
+
+Step 17 -- Implement wait() so that it calls SYSHalt().  Now, run 
+           shell, and execute programs so that wait() is never called
+           (i.e. do: "argtest x y z &", then "hw &", then "exec &").
+           Don't use any programs that read from stdin.  These should
+           work.  That's pretty cool.  Make sure you do this at least
+           8 times from the console so that you test reusing parts of
+           main_memory.
+
+           Now, try something where wait is called, like "hw" without
+           the ampersand.  It should halt.   
+
+           See if you can fork off the cpu program 8 times quickly (you
+           may need to employ the help of your mouse for this) and get
+           an error that you have no more processes to fork.  Actually, 
+           I couldn't do this because we haven't dealt with the timer yet,
+           and once the cpu program gets control of the cpu, it doesn't
+           give it up.  
+
+Step 18 -- Now, we're going to implement wait().   This is slightly 
+           tricky.  First, we need to implement getppid().  So, we need
+           to have a parent field in our PCB.  Note that this should point
+           to the parent's PCB, and not contain the parent's PCB.  
+           I have a sentinel PCB, to which I give the pid of 0.  It never
+           runs, but I treat it like the init process.   I make this the
+           parent of the first process.  For our first process, 
+           we'll have its parent be this init process.  Get all of
+           this working and get getppid() working.  Don't worry about having
+           a parent process die -- since we're not deleting PCB's upon 
+           exiting, everything will work.  Try the getppid program from 
+           shell ("getppid &").  Its output should be something like:
+
+           1 My pid is 6.  My parents pid is 1
+           3 My pid is 6.  My parents pid is 1.  Fork returned 7
+           2 My pid is 7.  My parents pid is 6.  Fork returned 0
+           3 My pid is 7.  My parents pid is 6.  Fork returned 0
+         
+           Run it a few times and make sure your pids are right.  Note
+           that at that last line, the parent has already called exit.  
+           Everything is still ok because you haven't deallocated the PCB yet.
+
+Step 19 -- Add a semaphore called waiter_sem and a dllist called
+           waiters to each process's PCB.
+           Initialize the semaphore to zero.  When a process exits, it should
+           call V() on its parent's waiter_sem, and put its PCB onto the
+           parents waiters list.  
+
+Step 20 -- Now, when a process calls wait(), it should call P() on its
+           waiter_sem semaphore.  When this unblocks, there is a child that
+           is done.  It should take the child off that dllist, free up its
+           pid and PCB, and use the child's PCB (before freeing of course)
+           to fill in the return values to the wait call.  Test this -- you
+           should now be able to fork off processes from shell and wait 
+           for them.
+
+           I.e.:
+
+           shell> hw
+           Hello world
+           the write statement just returned 12
+           shell> hw
+           Hello world
+           the write statement just returned 12
+           shell> artest a b c d
+           argc is -->5<--
+           argv is -->104388<--
+           envp is -->0<--
+           argv[0] is (104420) -->argtest<--
+           argv[1] is (104418) -->a<--
+           argv[2] is (104416) -->b<--
+           argv[3] is (104414) -->c<--
+           argv[4] is (104412) -->d<--
+           shell> hw &
+           shell>Hello world
+           the write statement just returned 12
+           hw
+           Hello world
+           the write statement just returned 12
+           shell>
+
+Step 21 -- Note that this deals just fine with zombie processes.  However,
+           orphans are a problem.  To deal with this, you should add
+           a rb-tree to your pcb struct called "children".  This
+           holds all non-zombie children of the process in question.
+           It should be keyed on the child's pid, and have the pcb as
+           a value.  Write the code that inserts the child into the
+           rb-tree when fork is called, and that removes the child
+           from the parent's rb-tree when the child calls exit.  Test it.
+
+Step 22 -- Ok, now when a process dies, it needs to make all of its children
+           switch parentage to the init process.  Do that for all the
+           non-zombie children (these are the one's in the children tree --
+           the zombies are in the waiters dllist) -- take them off the children
+           tree, switch their parent pointers, and put them into the 
+           children tree for the init process.  Test this.  One way to 
+           test this is to run the getppid program.  The child process should
+           become a zombie.  Make sure it is inherited by init:
+
+1My pid is 4.  My parents pid is 1
+3 My pid is 4.  My parents pid is 1.  Fork returned 5
+2 My pid is 5.  My parents pid is 4.  Fork returned 0
+shell>3 My pid is 5.  My parents pid is 0.  Fork returned 0
+
+           Note the shell prompt came back when the parent exited.
+
+Step 23 -- When a child of init becomes a zombie, it never gets cleaned up.
+           You can fix this in one of two ways.  The first way is to 
+           have the child check the parent when it exits.  If the parent is
+           init, it frees itself.  The second way is to fork off a separate
+           process at boot time.  This process calls P() on init's waiter_sem,
+           and when it wakes up, it cleans up the zombie on its waiter's list,
+           and then calls P again.  This is pretty cool, so it's how I did it.
+
+           Test it -- first exit shell.  Init should clean that up (you may
+           have to resort to printf statements to test this).
+           Next, fire it up again and call getppid.  Make sure that Init 
+           is cleaning  up the orphans. 
+
+Step 24 -- There's one final case missing.  And that is when a process
+           exits, but it has zombies on its waiters list.  These need to
+           be cleaned up.   Again, there are two ways to do this -- one
+           is to clean them up directly.  Two is to move them to the waiters
+           list of init, and call V() on init's waiter_sem semaphore.  
+           Whatever you do, test it -- call "hw &" from shell, wait for it
+           to finish, and then exit shell.  The zombie process should get
+           cleaned up.
+
+Step 25 -- Finally, we're missing one thing -- the timer.  This is trivial.
+           Call start_timer() with an arbitrary initial value (your TA's chose 10), and put
+	   the process at the end of the ready queue when you catch the
+	   interrupt. It's that simple.  Test it by calling the cpu program
+	   in the background a bunch -- see how its behavior differs from
+	   when the timer is not implemented. Is it working?
+
+
+
+	Make sure that your code works in the face of errors. Test
+	everything that you can think of. Run the code in the executables
+	directory and make sure that you understand what is going on in SOS
+	step by step.

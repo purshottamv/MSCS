@@ -1,0 +1,346 @@
+Step 1:
+
+  This lab will require you to restructure your I/O.  When you
+  finished lab 2, you could read from fd 0, getting bytes from the console
+  buffer, and you could write to fd's 1 and 2, sending bytes directly
+  to the console. 
+  
+  In this lab you have to change this.  The structure will be as
+  follows.  Each process's PCB will have a ``filetable'' field, which
+  is an array of FTSIZE (#defined to be 64 your header).  The elements
+  of the filetable are NULL if the corresponding fd is not opened.  If
+  it is opened, then it contains a pointer to a "vnode" struct.  My
+  Vnode struct is defined as follows:
+  
+  typedef struct {
+    IO_Buffer *iobuf;
+    int num_open;
+    int type;
+    int mode;
+  } Vnode;
+  
+  For now, iobuf is a pointer to the console, num_open is the number
+  of fd's that point to this vnode, type is CONSOLE (#defined in
+  mysos.h), and mode is O_RDONLY or O_WRONLY (from fcntl.h -- read
+  the open man page).
+  
+  Rewrite your code to have this format.  Things that you will have to
+  do are as follows:
+  
+  - Create two vnodes at startup.  One is for reading from the console,
+    and one is for writing to the console.  Both iobuf's point to the
+    console.
+  
+  - When you initialize your first process, have p->filetable[0] point
+    to the console reading vnode, and have p->filetable[1] and
+    p->filetable[2] point to the console writing vnode.  Make sure the
+    num_open fields are correct.
+  
+  - Change read/write so that they work with this structure.  They
+    perform error checking according to the vnode (i.e. check that (fd
+    >= 0 && fd < FTSIZE), then check to make sure that p->filetable[fd]
+    != NULL, then check to make sure that p->filetable[fd]->mode is
+    correct).  Of course check the buf argument to make sure that it is
+    in the proper range.  Then read from the console buffer or write to
+    the console.
+  
+  - Change fstat so that it sets the buffer size according to
+    p->filetable[fd]->mode and p->filetable[fd]->type.
+  
+  - Change close() so that it error checks and if p->filetable[fd] !=
+    NULL, then it decrements p->filetable[fd]->num_open and then sets
+    p->filetable[fd] to NULL.
+  
+  - Have fork() copy the p->filetable[] fields of the parent to the
+    child (copy the pointers, don't make copies of the vnodes).  
+    Make sure that if p->filetable[i] != NULL, then when you
+    copy it to the child, you increment the num_open field.
+  
+  Test this by running the shell and executing things like cat, hw, argtest,
+  getppid, etc.
+
+Step 2:
+
+  Now, I defined the IO_Buffer struct to be:
+
+    typedef struct {
+      char *buf;
+      int size;
+      int nreaders;
+      int nwriters;
+      int count;
+      int head;
+      int tail;
+      mt_sem nelem;
+      mt_sem nempty;
+      mt_sem read_serialize;
+      mt_sem write_serialize;
+    } IO_Buffer;
+    
+  The fields are as follows: buf is the buffer.  It has size elements.
+  nreaders will be the number of fd's that point to this io_buffer for
+  reading.  nwriters is the number of fd's that point to this io_buffer
+  for writing.  Count, head and tail are the same as in the bounded
+  buffer threads examples.  Nelem is a count of the number of elements
+  in the buffer (initally 0) and nempty is the number of free spaces in
+  the buffer (initally size).  Read_serialize and write_serialize are
+  semaphores which start at 1 and ensure that only one thread at a time
+  can read from the buffer, and that only one thread at a time can write
+  to the buffer.  
+
+  First, I wrote 
+
+     IO_Buffer *make_io_buffer(int size)
+
+  which mallocs and initializes the fields of an IO_Buffer.
+
+  Next, I wrote the procedure 
+
+    io_buffer_read(IO_Buffer *iobuf, int size, char *buf)
+
+  which is what you'll use to service read() system calls.  It reads
+  size bytes from vnode v into the array buf (this is a sos pointer, not
+  a user program pointer -- it is assumed that the calling procedure 
+  calculates the correct value of buf).
+
+  io_buffer_read performs the following general steps:
+
+   - calls P on v->iobuf->read_serialize, making sure that only one
+     process reads from a buffer at a time.
+   - while the number of characters read is less than the read size:
+     - P the nelem semaphore
+     - read on character from the buffer, incrementing the head and
+       tail pointers as necessary.
+     - V the nempty semaphore
+   - calls V() on v->iobuf->read_serialize and calls syscall_return on
+     the number of characters read.
+
+   I've been sketchy on this description because you'll need to do some
+   thinking.  Make sure that when you wake up from a blocking call, you
+   check to make sure that there are characters to read -- i.e. be safe,
+   and don't assume that just because you woke up, you won't have to
+   block instantly again.
+
+   To test this, create a new IO_buffer in sos_initialize() for reading
+   from the console.  Keep the old stuff in there for writing.  Make
+   the buffer 256 bytes.  Now fork off a thread that reads characters
+   from the console and puts them into this buffer -- you did this before --
+   now you're simply using the IO_buffer instead of your old console buffer.
+   Never have this thread block if the buffer is full.  Instead, if the
+   buffer is full and the console generates a character, simply throw away
+   the character.  Have your console-reading vnode point to this IO_Buffer.
+   
+   Get it all working.
+
+Step 3:
+
+   Now, write io_buffer_write(IO_Buffer iobuf, int size, char *buf)
+
+   This writes size bytes starting at buf into the IO_buffer pointed
+   to by iobuf.  When it's done, it calls returns with the number of
+   characters written (usually size).  This should work even if the buffer
+   is smaller than size -- i.e. it will write as many bytes as will fit
+   into the buffer, block on nempty and then when it wakes up continue
+   writing bytes.
+
+   This is a little different from what you had before.  Before, you
+   wrote characters directly to the console.  Now, you'll be writing
+   to a buffer.  Anyway, write this procedure so that it works -- 
+   You'll need to do the inverse of reading... P nempty and V nelem
+   as you write characters into the buffer. Check out the printqsim
+   for kthreads source or the semaphores lecture to see how this all
+   fits togther.
+
+   As in io_buffer_read(), before you start writing, you should call
+   P(iobuf->serialize) and can V() on it when you're done.  
+
+   To test this, create a one-character buffer for the console and have
+   the vnode for console-writing point to this buffer.   Fork off a
+   thread that empties this buffer and writes to the console.  Then 
+   write calls are simply a matter of calling io_buffer_write on this
+   buffer.  When the characters are written to the console, the write
+   catches the return value and syscall_return()s
+
+Step 4:
+
+   Now, to summarize, you should have two routines: io_buffer_read()
+   and io_buffer_write(), which are called when processing the read()
+   and write() system calls.  You should have two operating system 
+   threads which deal with console I/O.  One puts characters from the
+   console into a 256-byte console buffer, and the other writes 
+   characters from a 1-byte buffer to the console.
+
+   Now, tie up some loose ends.  Make sure that your IO_buffer for
+   console reading has its nwriters field set to 1, and that the
+   IO_buffer for console writing has its nreaders field set to 1.
+
+   Finally, implement close().  If the fd is valid, you should 
+   decrement the num_open field of the vnode.  If num_open is zero,
+   then no processes have this particular file open, so you should
+
+        - decrement the nreaders or nwriters field of the iobuf, 
+          depending on what v->mode is.
+        - if (nreaders == 0 && nwriters == 0) free the iobuf (this
+          will never happen for the console, but it will happen for
+          pipes, so you'll be testing this later).
+        - free the vnode.
+
+   finally, you set the proper entry in the filetable to null.
+
+   Test this out.
+
+Step 5:
+
+   Time to implement dup and dup2.  This should be straightforward --
+   you will simply make a copy of the pointer to the proper fd and
+   increment the num_open field.  And of course do error checking.
+   Test this out (write your own C code to test it!). 
+
+Step 6:
+
+   Now the big task -- implement pipe().  What you will have to do is
+   create an io_buffer with PIPEBUFSIZE bytes (it should be 4K or so
+   in real life, but I made mine 50 bytes so that it would be easier
+   to test it).  You should define a new type for vnodes in mysos.h
+   (I have CONSOLE = 1, and PIPE = 2). After creating the io_buffer,
+   you create two vnodes, one for reading and one for writing, and
+   have them both point to the io_buffer.  You then set the fd in p[0]
+   to point to the reading vnode, and the fd in p[1] to point to the
+   writing vnode.  When setting p[0] and p[1] in the user's memory.
+
+   Now, read() and write() should simply call io_buffer_read() and 
+   io_buffer_write() as before, and it should all work.  Think about
+   it and make sure that it makes sense.  Test it by calling pipe
+   in one process and having that process read and write from the
+   pipe.  I.e. don't try to do pipes from the shell yet.  
+
+   Something like pipe_test.c:
+
+      main()
+      {
+        int i, j, p[2];
+        char s[100];
+        char s2[100];
+      
+        i = pipe(p);
+      
+        printf("pipe(p) returned %d %d %d\n", i, p[0], p[1]);
+      
+      
+        for (j = 0; j < 5; j++) {
+          sprintf(s, "I am a string %d\n", j);
+          i = write(p[1], s, strlen(s));
+          printf("write to the pipe completed.  i = %d\n", i);
+      
+          i = read(p[0], s2, 100);
+          printf("write from the pipe completed.  i = %d.  s2=%s\n", i, s2);
+        }
+      
+      }
+
+   Make sure you test filling up the pipe buffer, and testing to make sure
+   that your circular buffer works.
+
+Step 7:
+
+   Now, there are a few problems that you'll need to deal with before
+   getting pipes to work with the shell.  First is having the read end
+   of the pipe go away.  Try hw | cat.  It should print out the hello
+   world, etc. but chances are the cat will not exit because it will 
+   block on reading from the pipe and never unblock once hw is done.
+
+   To deal with that, you should do three things.  First, in 
+   io_buffer_read() before you block, you should check and make
+   sure that nwriters > 0.  If not, then if you block, it will be
+   forever.  Why?  Because there are no processes to fill the buffer.
+   Instead, if (nwriters == 0) return from the system call.
+
+   Second, whenever you set nwriters to zero (this will happen
+   sometimes when you close a file or exit a process), if (nreaders >
+   0), you should call V(nelem).  This will wake up any
+   blocked processes who will then return from their read calls.
+
+   Third, when a process exits, you should make sure that all of its
+   open fd's get closed.  Now try hw | cat again.  It should work.
+   Try it again and again.  Make sure that your pipe iobufs are getting
+   freed when then two processes die.  Try modifying hw so it writes
+   more characters than the pipe buffer can hold.  Make sure everything
+   still works then.
+
+Step 8:
+
+   Now you need to change io_read_buffer a little.  As it is, it checks
+   every character for -1, and perhaps for \n.  You don't want that in 
+   a pipe.  Instead, if read(fd, buf, n) is called, you should make sure
+   that the read returns only if n characters are read, or if the write
+   end of the pipe has been closed.  Get this to work, and test it out
+   by doing cat | cat80.  You should only see output when the buffer gets
+   full, and when you hit ^D.  Make sure that when the input is from the
+   console, you're still checking for eof and \n.   It's only when you're
+   reading from a pipe that you want to wait for all n characters.
+   This is where the "type" field of the vnode comes in handy.
+
+Step 9:
+
+   Unfortunately, the semantics of read still aren't right for pipes.
+   You'll note that in Unix, when the write end of the pipe calls
+   write() with n bytes, then the read() end will get exactly n bytes
+   even if it asked for more.  You don't have those semantics now, but
+   you can approach them by adding a field "lefttowrite" to the 
+   IO_Buffer struct.  This field will be zero if there is no process
+   writing to a buffer.  However, if there is a process currently writing,
+   then this field contain the number of characters the process has
+   left to write.   Change io_buffer_write() to work in this way.  Note
+   that lefttowrite only has to be valid when the io_buffer_write()-ing
+   thread is blocked.  
+
+   Now change the pipe-reading part of io_buffer_read() to return when
+
+       - n characters have been read in a read(fd, buf, n) call.
+       - Some (x < n) characters in the buffer have been read, the 
+         buffer is empty and lefttowrite == 0.
+ 
+   Otherwise, have it block and wait for more input.   Test this
+   using the following version of cat80:
+
+   main()
+   {
+           int n;
+           char ch[81];
+   
+           while ( (n = read(0, ch, 80)) > 0) {
+           ch[n] = '\n';
+           write(1, ch, n+1);
+         }
+        if (n < 0) { perror("cat"); }
+   }
+
+   Put a few cat80's in a pipe and see if the output is as it should be.
+   Test it by inputting lines that are larger than your pipe buffer.
+
+Step 10:
+
+   There's one case that it messed up.  Try hw | cat.  This should
+   work fine.  But how about  cat | hw?
+
+   Try it in regular unix first.  It will print out the "Hello world"
+   stuff and then wait for you to type into std in.  After you type
+   something and hit return, it will try to write to the pipe, but since
+   the read end is gone (the hw program has exited), it will generate
+   SIGPIPE and exit.  
+
+   Doing this in SOS probably will not work as you think.  The 
+   "Hello world" stuff will print, and when you type into cat it will
+   write to the io_buffer and return.  It will keep doing this either
+   until you exit, or until you fill up the pipe buffer, at which point
+   it will block (which to you will be indistinguishable from cat running
+   unless you put some print statements into SOS).  You need to fix
+   this.  In io_buffer_write(), you need to check nreaders, and if it
+   is zero, you should have the process exit (we're not doing signals, 
+   so we're just going to kill the process).  
+
+   Moreover, when you set nreaders to zero (i.e. when a fd gets closed
+   or a process exits), you should call V(nempty) so that any blocked
+   writer will wake up, see that nreaders is zero, and kill the process.
+   Do all of this and test it.
+

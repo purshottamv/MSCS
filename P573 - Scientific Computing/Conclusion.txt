@@ -1,0 +1,57 @@
+The program can be run in two modes depending on the option provided in the makefile [	$(CC) $(OPTS) -c timing.cpp -D_TRACE ]. i.e. Adding "-D_TARCE" will generate executable for trace mode.
+
+Normal Mode : This will simply write the data in data_overhead and data_resolution files.
+Trace Mode : This will generate additional data such as Gflops_per_sec , timer_overhead, cost_in_flops on the console. You can log the output on the console into a file by running it as "./go > output". The file is not attached alongwith the sumitted tar file.
+
+The readings were taken on a 8 cluster machine with the following configuration of each processor.
+
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 15
+model name      : Intel(R) Xeon(R) CPU           X5365  @ 3.00GHz
+stepping        : 7
+microcode       : 0x66
+cpu MHz         : 2992.372
+cache size      : 4096 KB
+physical id     : 1
+siblings        : 4
+core id         : 0
+cpu cores       : 4
+apicid          : 4
+initial apicid  : 4
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 10
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx lm constant_tsc arch_perfmon pebs bts rep_good nopl aperfmperf pni dtes64 monitor ds_cpl vmx est tm2 ssse3 cx16 xtpr pdcm dca lahf_lm dtherm tpr_shadow
+bogomips        : 5985.07
+clflush size    : 64
+cache_alignment : 64
+address sizes   : 36 bits physical, 48 bits virtual
+power management:
+
+The language used is C++ and the compiler version is 
+g++ (Gentoo 4.5.4 p1.0, pie-0.4.7) 4.5.4
+
+The parameters used for the readings are as follows :
+
+ndatapoints = nsamples = 20000
+nREPETITIONS = 100
+VECTOR_SIZE  = 10000
+nOPERATIONS  = 100
+
+The number of Gflops per second this computer can perform is
+
+(number of cores)*(number of kernel threads)*2*(clock rate in Ghertz)
+= 4 * 2 * 2 * 2.992
+= 47.872 Gflops / second.
+
+The clock resolution for this machine is approximately 2.7008354663848877e-07 which is the minimum value recorded.
+The daxpy operation of length n = 10000 requires 2*n = 20000 floating point operations.
+The timing block needs to require at least 100*(1e-7) = 1e-05 seconds. In that amount of time, theoretically the system can perform 47.87 * (1e-05) = 0.0004787 Gflops = 478700 flops. So the daxpy needs to be repeated 478700/20000 = 24 times in the timing block.
+
+Final Conclusion :
+Overhead = 4.0615443140268327e-07
+Resolution = 2.7008354663848877e-07
+No. of flops required = 478700 flops (calculations as shown above)
+Average Overhead Time = 5.92682e-07

@@ -1,0 +1,13 @@
+References used for this project:
+
+1. getopt_long example
+http://siber.cankaya.edu.tr/ozdogan/SystemsProgramming/ceng425/node22.html	
+
+2. Beej's guide to network programming
+http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html
+
+3. Logging
+http://www.daniweb.com/software-development/cpp/threads/410861/creating-thread-safe-logger
+
+4. Socket Programming in C++
+http://tldp.org/LDP/LG/issue74/tougher.html
