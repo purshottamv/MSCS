@@ -1,0 +1,22 @@
+/*
+	Project 2 references.
+	Author:	Harsh Savla
+*/
+
+1.	binarytides.com
+	http://www.binarytides.com/raw-sockets-c-code-on-linux/
+	This was used as a starting point for the project. A function get_local_ip provided here was used to get the local address of the source as getaddrinfo somehow only returned 0.0.0.0.
+	
+2. 	Beej network guide
+	All information on various socket functions and structures.
+	
+3.	wikipedia.org
+	http://en.wikipedia.org/wiki/Port_scanner
+	To read about the various scanning techniques.
+
+4.	Linux man pages.
+
+5.	RFC pages for http, ssh, smtp, udp, whois, imap.
+
+6.	Unix Network Programming, Richard Stevens
+	We used the checksum function provided in this book for ip and tcp headers. Also, a valuable source for advanced socket programming api.
